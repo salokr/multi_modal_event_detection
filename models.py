@@ -58,26 +58,25 @@ class MultimodalClassifier(nn.Module):
         return combined_logits
 
 
+
 class AttentionLayer(nn.Module):
     def __init__(self, feature_dim, attention_dim):
         super(AttentionLayer, self).__init__()
         self.attention_fc = nn.Linear(feature_dim, attention_dim)
-        self.value_fc = nn.Linear(feature_dim, attention_dim)
+        self.value_fc = nn.Linear(feature_dim, feature_dim)
         self.query = nn.Parameter(torch.randn(attention_dim), requires_grad=True)
-    
+
     def forward(self, features):
         # Compute attention scores
-        attention_scores = F.tanh(self.attention_fc(features))  # shape: (batch_size, attention_dim)
+        attention_scores = F.gelu(self.attention_fc(features))  # GELU for nonlinear activation
         attention_scores = torch.matmul(attention_scores, self.query)  # shape: (batch_size, 1)
         attention_weights = F.softmax(attention_scores, dim=0)
-        
+
         # Apply attention weights
         weighted_features = features * attention_weights.unsqueeze(-1)
-        attended_features = weighted_features.sum(dim=1)  # Sum over the batch
-        
-        return attended_features, attention_weights
+        return weighted_features, attention_weights
 
-#Basic Attention
+# MultimodalClassifier_BA
 class MultimodalClassifier_BA(nn.Module):
     def __init__(self, num_classes):
         super(MultimodalClassifier_BA, self).__init__()
@@ -89,29 +88,33 @@ class MultimodalClassifier_BA(nn.Module):
         # Text model (BERT)
         self.text_model = BertModel.from_pretrained('bert-base-uncased')
         self.text_features_dim = self.text_model.config.hidden_size
-        
-        # Attention layers
+
         self.image_attention = AttentionLayer(self.image_features_dim, 512)
         self.text_attention = AttentionLayer(self.text_features_dim, 512)
-        
-        # Fusion layer
-        self.fusion_linear = nn.Linear(1024, num_classes)
-    
+
+        # Final fusion layer
+        self.fusion_linear = nn.Linear(self.image_features_dim + self.text_features_dim, num_classes)
+
     def forward(self, image_input, text_input_ids, text_attention_mask):
-        # Process image
+        # Process image features
         image_features = self.image_model(image_input)
         image_attended, image_weights = self.image_attention(image_features)
-        
-        # Process text
+
+        # Process text features
         text_outputs = self.text_model(text_input_ids, attention_mask=text_attention_mask)
         pooled_text_output = text_outputs.last_hidden_state.mean(dim=1)
         text_attended, text_weights = self.text_attention(pooled_text_output)
-        
-        # Concatenate attended features
+        # print("Image attended shape:", image_attended.shape)
+        # print("Text attended shape:", text_attended.shape)
+        # Concatenate attended features as vectors
+        #multimodal_features = torch.cat((image_attended.mean(dim=1), text_attended.mean(dim=1)), dim=1)
         multimodal_features = torch.cat((image_attended, text_attended), dim=1)
+        # print("Multimodal features shape:", multimodal_features.shape)
+        # Final classification or regression
         combined_logits = self.fusion_linear(multimodal_features)
-        
+
         return combined_logits, image_weights, text_weights
+
 
 
 class CrossModalSelfAttention(nn.Module):
