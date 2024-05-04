@@ -1,7 +1,7 @@
 # Multimodal-Disaster-Event-Identification-from-Social-Media-Posts
 
 ## Setting up: 
-1) Download the dataset from here https://drive.google.com/file/d/1LIybWnY9JwYYhHDsXU2yMcHmdC52Q1el/view?usp=sharing
+1) Download the dataset from here https://drive.google.com/file/d/2LIybWnY9JwYYhHDsXU2yMcHmdC52Q1el/view?usp=sharing
 2) Install requirements `pip install -r requirements.txt`
 3) Make sure the directory structure is like this:
 heatmaps: initially empty will be used to store the attention heatmaps
